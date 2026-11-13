@@ -3,6 +3,7 @@
 定義 VS Code extension 主體（commands、activation、Webview panel），並直接呼叫 @spekjs/core 處理請求。
 
 ## Requirements
+
 ### Requirement: Extension activation
 The extension SHALL activate when a workspace containing an `openspec/` directory is opened, or when the user explicitly invokes a spek command. Upon activation, the extension SHALL register TreeView providers for the sidebar and display the Activity Bar icon.
 
@@ -62,3 +63,22 @@ The extension host SHALL handle message-based API requests from the Webview and 
 #### Scenario: Handle API error
 - **WHEN** the Webview sends a request and the core module function throws an error
 - **THEN** the extension host replies with `{ type: 'response', id: 'req-1', error: <error message> }`
+
+### Requirement: Spec identifier index request
+The message handler SHALL answer a `getSpecIds` request with the identifier index of the workspace, as the web server's `/api/openspec/spec-ids` route does. When the request carries a change slug, the change's delta specs SHALL be layered over the main specs. A slug that is not a single string SHALL be refused with an error.
+
+#### Scenario: Index for the workspace
+- **WHEN** the webview sends `getSpecIds` with no slug
+- **THEN** the host replies with the identifiers declared in the workspace's main specs and its retired identifiers
+
+#### Scenario: Index with a change
+- **WHEN** the webview sends `getSpecIds` with the slug of a change whose delta declares an identifier
+- **THEN** the reply includes that identifier, and a delta declaration replaces a main one of the same identifier
+
+#### Scenario: Workspace without identifiers
+- **WHEN** no heading in the workspace carries an identifier
+- **THEN** the reply is an empty index and not an error
+
+#### Scenario: Invalid slug
+- **WHEN** the request carries a slug that is not a string
+- **THEN** the host replies with an error

@@ -534,8 +534,8 @@ GET /api/openspec/spec-ids?dir=...&at=<change slug> # spec identifier index (dec
   would crop and so carry no `max-w-spec`. `specMeasure.test.ts` pins both lists and that no source holds a second
   `120ch`. It is `ch` on a proportional font, so it holds a little more than 120 average characters. CSS geometry:
   jsdom cannot see it, the tests assert shape and the width was measured in a real browser.
-- **Spec identifiers** (`spec-id-references`; **web only so far** — VS Code, the demo and IntelliJ have no index and show
-  no links until the follow-up, IntelliJ also needing a Kotlin mirror). A `Requirement:` / `Scenario:` heading starting
+- **Spec identifiers** (`spec-id-references`; **web and VS Code** (the host answers `getSpecIds` from `readSpecIdIndex`) — the demo and
+  IntelliJ have no index and show no links until a follow-up, IntelliJ also needing a Kotlin mirror). A `Requirement:` / `Scenario:` heading starting
   with an ID — bare (`BMB-001 Title`) or bracketed (`[ACCESS-001] Title`) — declares it, shape
   `[A-Z][A-Z0-9]*-\d{3,}(\.\d{2,})?`, no configuration. The rule is `@spekjs/core/spec-ids` (browser-safe: declaration
   and `## Relocated and Retired IDs` table parsing, citation splitting, index merge); `spec-id-index.ts` is the Node
@@ -553,6 +553,8 @@ GET /api/openspec/spec-ids?dir=...&at=<change slug> # spec identifier index (dec
   - **`getSpecIds` is optional on `ApiAdapter`**; `FetchAdapter` takes `specIds: false` (IntelliJ sets it) so a host whose
     server lacks the route leaves the method undefined instead of 404ing on every page. Failure of the fetch keeps whatever
     was showing; a decoration must not turn a spec page into an error page. `useOptionalApiAdapter` exists for that.
+  - **The preview closes on page scroll and resize** (it is `position: fixed` at where its citation was, so a scroll left it
+    floating — measured in a real VS Code), but not on a scroll inside itself. Verify it in the browser-hosted VS Code.
   - **The preview is portalled** (a block inside a `<p>` is invalid, and a folded `<details>` would clip it) and renders
     the target's Markdown through a nested `MarkdownRenderer` under an *empty* index, so a citation inside a preview stays
     text and previews cannot nest. It mounts only while open. No new colour tokens: it reuses the spec-reference classes.
