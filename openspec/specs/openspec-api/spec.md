@@ -1,7 +1,9 @@
 ## Purpose
 
 提供 OpenSpec 內容的 REST API（overview / specs / changes / graph / search），作為前端資料來源。
+
 ## Requirements
+
 ### Requirement: Overview endpoint
 The system SHALL provide `GET /api/openspec/overview` that returns aggregate statistics for an OpenSpec repository. The endpoint SHALL accept an optional `aggregate` query parameter (default true); when aggregation is active and the repository has multiple worktrees, the statistics SHALL cover all worktrees following the worktree-aggregation rules (active changes unioned, archived changes deduplicated by slug).
 
@@ -244,7 +246,6 @@ slug can be resolved to the specific working copy — git worktree or jj workspa
 - **WHEN** `/watch` runs with aggregation and jj inclusion enabled on a repo with a jj workspace
 - **THEN** that workspace's `openspec/` directory is watched for changes
 
-
 ### Requirement: Worktrees endpoint
 
 The system SHALL provide a read-only `GET /api/openspec/worktrees` that returns the discovered working
@@ -428,3 +429,18 @@ The web API SHALL accept `GET /api/openspec/specs?dir=<repo>&topic=<full-topic>`
 #### Scenario: Legacy route rejects an encoded escaping topic
 - **WHEN** a client requests `/api/openspec/specs/..%2F..%2Fsecret?dir=<repo>`
 - **THEN** the API returns HTTP 400 and reads no file outside the specs tree
+
+### Requirement: Spec identifier index endpoint
+`GET /api/openspec/spec-ids?dir=…` SHALL return the identifiers declared in the repository's main specs, each with its kind, spec topic, heading anchor, title and text, and the retired identifiers with their reason, status and replacement. With `at=<change slug>` the change's delta specs SHALL be merged in and take precedence. The endpoint SHALL read only spec files and `openspec/spec-ids.yaml` under `openspec/`, and SHALL validate the change slug as it does for other routes.
+
+#### Scenario: Repository with identifiers
+- **WHEN** a client requests the index for a repository whose specs carry identifier headings
+- **THEN** the response lists each declared identifier with its topic, anchor, title and text
+
+#### Scenario: Repository without identifiers
+- **WHEN** no heading carries an identifier and no retired record exists
+- **THEN** the response is an empty index, not an error
+
+#### Scenario: Unsafe change slug
+- **WHEN** `at` is not a safe change slug
+- **THEN** the request is refused as other change routes refuse it

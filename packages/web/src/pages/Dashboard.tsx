@@ -48,7 +48,7 @@ export function Dashboard() {
   ).length;
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-spec space-y-8">
       <h1 className="text-2xl font-bold">Overview</h1>
 
       {/* 統計卡片 */}

@@ -9,6 +9,9 @@ import {
 } from "react";
 import { slugifyHeading, specHeadingLabel } from "@spekjs/core/headings";
 import { specRoute } from "@spekjs/core/spec-topic";
+import { splitCitations, isSpecId } from "@spekjs/core/spec-ids";
+import { SpecIdRef, resolveSpecId } from "./SpecIdRef";
+import { useSpecIdIndex } from "../contexts/SpecIdIndexContext";
 import { rehypeHighlightNarrow } from "../utils/highlight";
 import { rehypeSpekMermaid, MERMAID_MARKER } from "../utils/mermaidBlocks";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -270,18 +273,55 @@ function highlightBddKeywords(text: string, ctx: BddContext): ReactNode[] {
   return parts;
 }
 
+// Cheap test for "might hold a spec identifier citation", so a text run that cannot is rendered exactly
+// as it was before citations existed — no extra component, no hook, identical markup.
+const MIGHT_CITE = /\[[A-Z][A-Z0-9]*-\d{3,}/;
+
+/**
+ * A text run that may hold `[ID]` citations (`spec-id-references`). A citation that resolves in the index
+ * becomes a link or a retired mark; anything else, and every run when no index is provided, is left as
+ * written and highlighted as before. A heading is never linked: `ctx.inHeading` is set by the heading
+ * components and carried down to a bold run inside one.
+ */
+function TextRun({ text, ctx }: { text: string; ctx: BddContext }) {
+  const index = useSpecIdIndex();
+  const nothingToLink =
+    ctx.inHeading || (Object.keys(index.entries).length === 0 && Object.keys(index.retired).length === 0);
+  if (nothingToLink) return <>{highlightBddKeywords(text, ctx)}</>;
+  // Adjacent text — including a citation that did not resolve — is highlighted as one run, so the markup
+  // of everything that is not a link is what it would be without this pass.
+  const out: ReactNode[] = [];
+  let pending = "";
+  const flush = () => {
+    if (pending) out.push(<span key={out.length}>{highlightBddKeywords(pending, ctx)}</span>);
+    pending = "";
+  };
+  for (const part of splitCitations(text)) {
+    const resolved = part.type === "citation" && part.id ? resolveSpecId(index, part.id) : null;
+    if (part.type === "citation" && part.id && resolved) {
+      flush();
+      out.push(<SpecIdRef key={out.length} id={part.id} label={part.value} resolved={resolved} />);
+    } else {
+      pending += part.value;
+    }
+  }
+  flush();
+  return <>{out}</>;
+}
+
+function textRun(text: string, ctx: BddContext, key?: number): ReactNode {
+  if (!MIGHT_CITE.test(text)) {
+    return key === undefined ? highlightBddKeywords(text, ctx) : <span key={key}>{highlightBddKeywords(text, ctx)}</span>;
+  }
+  return <TextRun key={key} text={text} ctx={ctx} />;
+}
+
 function processChildren(children: ReactNode, ctx: BddContext = PLAIN): ReactNode {
   if (typeof children === "string") {
-    return highlightBddKeywords(children, ctx);
+    return textRun(children, ctx);
   }
   if (Array.isArray(children)) {
-    return children.map((child, i) =>
-      typeof child === "string" ? (
-        <span key={i}>{highlightBddKeywords(child, ctx)}</span>
-      ) : (
-        child
-      )
-    );
+    return children.map((child, i) => (typeof child === "string" ? textRun(child, ctx, i) : child));
   }
   return children;
 }
@@ -326,6 +366,32 @@ function DivOrDiagram(props: ComponentPropsWithoutRef<"div"> & { node?: unknown 
   }
   const { node: _node, ...rest } = props;
   return <div {...rest} />;
+}
+
+/**
+ * The `a` override, at module scope for the same reason as `DivOrDiagram`: an inline one is a new type each
+ * render and remounts every link. A link whose whole text is a spec identifier (`[INGEST-005](../x/spec.md)`)
+ * and that resolves goes to the requirement in the app — the relative path it was written with names a file,
+ * which nothing here serves. Any other link is external, as before.
+ */
+function Anchor({ href, children }: { href?: string; children?: ReactNode }) {
+  const index = useSpecIdIndex();
+  const inHeading = useContext(InHeadingContext);
+  const label = typeof children === "string" ? children : Array.isArray(children) && children.length === 1 && typeof children[0] === "string" ? children[0] : null;
+  if (!inHeading && label !== null && isSpecId(label)) {
+    const resolved = resolveSpecId(index, label);
+    if (resolved) return <SpecIdRef id={label} label={label} resolved={resolved} />;
+  }
+  return (
+    <a
+      href={href}
+      className="text-accent hover:text-accent-hover underline transition-colors"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  );
 }
 
 const H2_CONTENT = "text-xl font-bold mt-6 mb-3 text-text-primary border-b border-border pb-2 scroll-mt-20";
@@ -402,18 +468,7 @@ export function MarkdownRenderer({ content, specTopics, idPrefix, fold, specShap
             return <em className="italic text-text-secondary">{children}</em>;
           },
           // 連結
-          a({ href, children }) {
-            return (
-              <a
-                href={href}
-                className="text-accent hover:text-accent-hover underline transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {children}
-              </a>
-            );
-          },
+          a: Anchor,
           // 程式碼區塊 — 不做 BDD 高亮
           code({ className, children }) {
             // A fenced block with a language hint carries a `language-*` class (rehypeHighlightNarrow puts

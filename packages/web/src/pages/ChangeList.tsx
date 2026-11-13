@@ -133,7 +133,7 @@ export function ChangeList() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-spec space-y-8">
       {header}
 
       {active.length > 0 && (

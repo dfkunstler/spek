@@ -86,7 +86,7 @@ export function SchemaList() {
       : null;
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-spec space-y-4">
       <div>
         {/* Header row with a count on the right, matching SpecList's "N topics". */}
         <div className="flex items-center justify-between gap-4">

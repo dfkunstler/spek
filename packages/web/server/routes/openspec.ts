@@ -26,6 +26,7 @@ import {
   withAuthoritativeChokidarEnv,
   isSafeSpecTopic,
   isSafeChangeSlug,
+  readSpecIdIndex,
 } from "@spekjs/core";
 
 // --- File watcher 共享管理 ---
@@ -281,6 +282,19 @@ openspecRouter.get("/schemas/:name", async (req, res) => {
   // "we could not look" and "it does not exist" are different problems; both are 404 to the client,
   // but the reason distinguishes them so the view can say which.
   res.status(404).json({ error: "Schema not found", reason: result.reason });
+});
+
+// The spec identifier index: what each `[ID]` citation in spec text resolves to. `at` layers a change's
+// delta specs over main. Built per request — a pass over the spec files, which costs less than the
+// invalidation a cache would need on every edit the watcher reports.
+openspecRouter.get("/spec-ids", (req, res) => {
+  const dir = req.query.dir as string;
+  const { at } = req.query;
+  if (at !== undefined && (typeof at !== "string" || !isSafeChangeSlug(at))) {
+    res.status(400).json({ error: "at must be one change slug" });
+    return;
+  }
+  res.json(readSpecIdIndex(dir, at));
 });
 
 openspecRouter.get("/search", (req, res) => {

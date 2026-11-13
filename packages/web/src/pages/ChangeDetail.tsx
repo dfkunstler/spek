@@ -35,7 +35,7 @@ function slugTitle(slug: string): string {
 // there is no error boundary. So the caller returns a graceful fallback instead.
 function assertNever(_kind: never): void {}
 
-function renderArtifact(artifact: ChangeArtifact, specTopics: string[], fold: SpecFold) {
+function renderArtifact(artifact: ChangeArtifact, specTopics: string[], fold: SpecFold, changeSlug: string | undefined) {
   if (artifact.kind === "markdown") {
     // proposal / design 等 markdown artifact 不摺疊 —— 只有 spec 形狀的內容摺
     return artifact.content ? (
@@ -69,6 +69,7 @@ function renderArtifact(artifact: ChangeArtifact, specTopics: string[], fold: Sp
         key={fold.generation}
         specs={artifact.specs}
         fold={foldOptionsFor(fold.mode)}
+        changeSlug={changeSlug}
       />
     ) : (
       <p className="text-text-muted text-sm">No delta specs</p>
@@ -275,7 +276,7 @@ export function ChangeDetail() {
       // Only the mounted tab renders. TabView shows just activeTab.content. Building content for every
       // artifact ran each data tab's fencedBlock scan on every re-render (tab switch, sort, fold, watcher
       // refresh). Rendering only the active one bounds that scan to one artifact.
-      content: artifact.id === activeTab ? renderArtifact(artifact, specTopics, fold) : null,
+      content: artifact.id === activeTab ? renderArtifact(artifact, specTopics, fold, slug) : null,
     };
   });
 
@@ -333,8 +334,8 @@ export function ChangeDetail() {
     currentHeadings.length >= TOC_MIN_HEADINGS;
 
   return (
-    <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-8" : ""}>
-      <div className="min-w-0">
+    <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,var(--container-spec))_16rem] xl:gap-8" : ""}>
+      <div className="min-w-0 max-w-spec">
         <TabView tabs={tabs} header={headerEl} sticky activeId={activeTab} onChange={handleTabChange} />
       </div>
       {showToc && (

@@ -55,6 +55,16 @@ export { extractHeadings, slugifyHeading, specHeadingLabel } from "./headings.js
 export type { Heading } from "./headings.js";
 // 同時由 ./graph-node-id subpath 匯出（node-free），供 browser bundle / 宿主 main process 使用。
 export { changeNodeSlug, specNodeTopic } from "./graph-node-id.js";
+// The spec identifier rule is also on the node-free `./spec-ids` subpath; the index producer is Node-only.
+export { readSpecIdIndex, readRetiredLedger } from "./spec-id-index.js";
+export {
+  parseSpecIdDeclarations,
+  parseRetiredTable,
+  splitCitations,
+  isSpecId,
+  EMPTY_SPEC_ID_INDEX,
+} from "./spec-ids.js";
+export type { SpecIdEntry, RetiredEntry, SpecIdIndex } from "./spec-ids.js";
 // Also on the node-free `./spec-topic` subpath, for browser bundles.
 export { isSafeSpecTopic, isSafeChangeSlug } from "./spec-topic.js";
 export {

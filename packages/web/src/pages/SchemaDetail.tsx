@@ -82,7 +82,7 @@ export function SchemaDetail() {
     // space-y-6 like SpecDetail (the other detail page); stat cards borrowed from the Dashboard,
     // because packing this much into one line of text-xs metadata made the page read denser than
     // anything else in the app.
-    <div className="space-y-6">
+    <div className="max-w-spec space-y-6">
       <div>
         {back}
 

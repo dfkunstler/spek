@@ -12,6 +12,7 @@ import type {
   WorktreeInfo,
   SchemasResponse,
   SchemaReadResult,
+  SpecIdIndex,
 } from "@spekjs/core";
 import type { ApiAdapter, AggregationPrefs } from "./types.js";
 import { getAggregatePref, setAggregatePref } from "../utils/aggregatePref.js";
@@ -29,6 +30,9 @@ async function fetchJson<T>(url: string): Promise<T> {
 export interface FetchAdapterOptions {
   baseUrl?: string;
   dirParam?: string;
+  /** False when the host's server has no `spec-ids` route: the method is then left undefined, which is how
+   *  the UI knows to show no identifier links, rather than requesting a route that 404s on every page. */
+  specIds?: boolean;
 }
 
 /**
@@ -52,7 +56,15 @@ export class FetchAdapter implements ApiAdapter {
   constructor(private repoPath: string, options?: FetchAdapterOptions) {
     this.baseUrl = options?.baseUrl || "/api";
     this.dirParam = options?.dirParam || "dir";
+    if (options?.specIds !== false) {
+      this.getSpecIds = (changeSlug) =>
+        fetchJson(
+          `${this.baseUrl}/openspec/spec-ids?${this.q()}${changeSlug ? `&at=${encodeURIComponent(changeSlug)}` : ""}`,
+        );
+    }
   }
+
+  getSpecIds?: (changeSlug?: string) => Promise<SpecIdIndex>;
 
   private q(): string {
     return `${this.dirParam}=${encodeURIComponent(this.repoPath)}`;
