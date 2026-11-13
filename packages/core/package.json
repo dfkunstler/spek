@@ -60,6 +60,10 @@
     "./spec-topic": {
       "types": "./dist/spec-topic.d.ts",
       "import": "./dist/spec-topic.js"
+    },
+    "./spec-ids": {
+      "types": "./dist/spec-ids.d.ts",
+      "import": "./dist/spec-ids.js"
     }
   },
   "scripts": {

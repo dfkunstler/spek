@@ -12,7 +12,7 @@ export function SpecList() {
   const specs = data ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-spec space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Specs</h1>
         <span className="text-text-muted text-sm">{specs.length} topics</span>

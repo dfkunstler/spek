@@ -24,3 +24,12 @@ export function useApiAdapter(): ApiAdapter {
   }
   return adapter;
 }
+
+/**
+ * The adapter if one is provided, else null. For decoration that must degrade rather than fail — the
+ * spec identifier index — so a tree rendered without a host (a test, a future embed) shows its content
+ * without links instead of throwing.
+ */
+export function useOptionalApiAdapter(): ApiAdapter | null {
+  return useContext(ApiAdapterContext);
+}

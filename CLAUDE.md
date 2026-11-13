@@ -86,6 +86,7 @@ temporary workflow asserting the outputs, then removed: on the PR branch with `u
 packages/
 ├── core/       # @spekjs/core — pure logic (scanner.ts, tasks.ts, artifact-files.ts, artifact-discovery.ts, schema-order.ts, schemas.ts,
 │            #   search.ts=the search rule, search-documents.ts=its Node corpus,
+│            #   spec-ids.ts=the identifier rule (browser-safe), spec-id-index.ts=its Node index,
 │            #   spec-files.ts=nested spec discovery, spec-topic.ts=topic rule + tree,
 │            #   schema-flow.ts, openspec-cli.ts, git-cache.ts, types.ts)
 ├── ui/         # @spekjs/ui — visual components (SpecGraph.tsx, timeline/*, theme.ts=color contract, styles.css)
@@ -464,6 +465,7 @@ GET /api/openspec/schemas?dir=...&aggregate=        # workflow schemas + active-
 GET /api/openspec/schemas/:name?dir=...             # one schema's definition (404 carries `reason`)
 GET /api/openspec/worktrees?dir=...&jj=             # worktree/jj list only (no change scan) — feeds the header scope control
 GET /api/openspec/search?dir=...&q=...              # full-text search
+GET /api/openspec/spec-ids?dir=...&at=<change slug> # spec identifier index (declared + retired), delta over main with `at`
 ```
 
 ### VS Code Extension
@@ -522,6 +524,38 @@ GET /api/openspec/search?dir=...&q=...              # full-text search
   - `verifyPlugin` covers both ends of the range (`pluginVerification.ides` in `build.gradle.kts`). The IntelliJ
     Platform Gradle Plugin is pinned at **2.9.0**: 2.11.0+ needs Gradle 8.13+, 2.14.0+ needs Gradle 9, and the wrapper
     is 8.11.1 — 2.9.0 is also the version that added the `intellijIdea(...)` helper the 2026.x target needs.
+
+### Layout width and spec identifiers (two changes that touch every spec page)
+
+- **Reading pages are capped at one measure, `--container-spec: 120ch`, defined once in `global.css`'s `@theme`**
+  (so `max-w-spec`, and `var(--container-spec)` inside a grid template). Each page caps its **own root** — Overview, the
+  spec/change/schema lists and details — rather than `Layout` doing it: a `Layout` cap would squeeze the spec and change
+  pages' TOC grid into 120ch *total* and need a route list to exempt Graph and Timeline, which are spatial views a cap
+  would crop and so carry no `max-w-spec`. `specMeasure.test.ts` pins both lists and that no source holds a second
+  `120ch`. It is `ch` on a proportional font, so it holds a little more than 120 average characters. CSS geometry:
+  jsdom cannot see it, the tests assert shape and the width was measured in a real browser.
+- **Spec identifiers** (`spec-id-references`; **web only so far** — VS Code, the demo and IntelliJ have no index and show
+  no links until the follow-up, IntelliJ also needing a Kotlin mirror). A `Requirement:` / `Scenario:` heading starting
+  with an ID — bare (`BMB-001 Title`) or bracketed (`[ACCESS-001] Title`) — declares it, shape
+  `[A-Z][A-Z0-9]*-\d{3,}(\.\d{2,})?`, no configuration. The rule is `@spekjs/core/spec-ids` (browser-safe: declaration
+  and `## Relocated and Retired IDs` table parsing, citation splitting, index merge); `spec-id-index.ts` is the Node
+  producer, run **per request with no cache** (under 10 ms on 700+ identifiers; a cache would need invalidation on every
+  watcher event). Things that are not the obvious shape:
+  - **Only `[ID]` / `[ID](…)` cite; a bare `BMB-003` in prose does not link** (PR numbers, error codes match the shape),
+    and a token links only if the index declares or retires it, so ordinary brackets are never linked.
+  - **A scenario links to its requirement's anchor.** The renderer gives ids to `h2`/`h3` only; ids on `h4` would share
+    and shift the dedup counter and change every existing anchor. Anchors come from `extractHeadings`, not a second slug rule.
+  - **Retirement has two sources, merged**: `openspec/spec-ids.yaml`'s `retired:` list (read with `yaml`, fixed path under
+    `openspec/`) and any `## Relocated and Retired IDs` table in a main spec. A declared ID beats a retired record; an
+    unparsable ledger yields nothing, never an error.
+  - **`at=<change slug>` layers that change's deltas over main and the delta wins** (the Specs tab shows what the change
+    will make true). A change living only in another worktree is not found by slug — its delta citations do not resolve.
+  - **`getSpecIds` is optional on `ApiAdapter`**; `FetchAdapter` takes `specIds: false` (IntelliJ sets it) so a host whose
+    server lacks the route leaves the method undefined instead of 404ing on every page. Failure of the fetch keeps whatever
+    was showing; a decoration must not turn a spec page into an error page. `useOptionalApiAdapter` exists for that.
+  - **The preview is portalled** (a block inside a `<p>` is invalid, and a folded `<details>` would clip it) and renders
+    the target's Markdown through a nested `MarkdownRenderer` under an *empty* index, so a citation inside a preview stays
+    text and previews cannot nest. It mounts only while open. No new colour tokens: it reuses the spec-reference classes.
 
 **Frontend routes**: `/` (SelectRepo, web only) → `/dashboard` → `/specs` → `/specs/*` (full topic path, each segment encoded via `specRoute`) → `/changes` → `/changes/:slug` → `/graph` → `/schemas` → `/schemas/:name`
 

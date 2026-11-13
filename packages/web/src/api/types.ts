@@ -3,6 +3,7 @@ import type {
   SpecInfo,
   SpecDetail,
   SpecVersionContent,
+  SpecIdIndex,
   ChangesData,
   ChangeDetail,
   SearchResult,
@@ -35,6 +36,9 @@ export interface ApiAdapter {
   // Web = localStorage, VS Code = settings.
   getAggregationPrefs(): Promise<AggregationPrefs>;
   setAggregationPrefs(aggregate: boolean, includeJj: boolean): Promise<void>;
+  // The spec identifier index (`spec-id-references`). Optional: a host that cannot supply one leaves it
+  // out and spec text renders without identifier links. `changeSlug` layers that change's delta specs over main.
+  getSpecIds?(changeSlug?: string): Promise<SpecIdIndex>;
 }
 
 export interface AggregationPrefs {

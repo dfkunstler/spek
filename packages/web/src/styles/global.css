@@ -10,6 +10,14 @@
  * `diagramBuilds.test.ts` checks the built stylesheet for exactly this.
  */
 @theme static {
+  /*
+   * The reading measure of spec-shaped content: `max-w-spec`, and `var(--container-spec)` where a grid
+   * template needs it. The one definition — every spec view reads it, so none holds its own copy.
+   * `ch` rather than px so it follows the font size; the font is proportional, so 120ch holds a little
+   * more than 120 average characters of prose.
+   */
+  --container-spec: 120ch;
+
   --color-bg-primary: #0a0c0f;
   --color-bg-secondary: #111318;
   --color-bg-tertiary: #1a1d24;

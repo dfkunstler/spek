@@ -4,6 +4,7 @@ import type { HistoryEntry } from "@spekjs/core";
 import { extractHeadings } from "@spekjs/core/headings";
 import { useSpec, useSpecAtChange } from "../hooks/useOpenSpec";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
+import { SpecIdIndexProvider } from "../contexts/SpecIdIndexContext";
 import { SpecDiffViewer } from "../components/SpecDiffViewer";
 import { SpecToc } from "../components/SpecToc";
 import { FoldControls } from "../components/FoldControls";
@@ -97,7 +98,7 @@ export function SpecDetail() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="max-w-spec">
         <Link to="/specs" className="text-text-muted text-base font-medium hover:text-accent transition-colors">
           &larr; Back to Specs
         </Link>
@@ -107,8 +108,8 @@ export function SpecDetail() {
         </div>
       </div>
 
-      <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-8" : ""}>
-        <div className="min-w-0 space-y-6">
+      <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,var(--container-spec))_16rem] xl:gap-8" : ""}>
+        <div className="min-w-0 max-w-spec space-y-6">
           {compareEntry ? (
             <DiffView
               topic={data.topic}
@@ -118,12 +119,14 @@ export function SpecDetail() {
             />
           ) : (
             // key: 非受控的 <details> 只吃初始 open，bulk 動作要靠重掛才會套用新狀態
-            <MarkdownRenderer
-              key={fold.generation}
-              content={data.content}
-              fold={foldOptionsFor(fold.mode)}
-              specShaped
-            />
+            <SpecIdIndexProvider>
+              <MarkdownRenderer
+                key={fold.generation}
+                content={data.content}
+                fold={foldOptionsFor(fold.mode)}
+                specShaped
+              />
+            </SpecIdIndexProvider>
           )}
 
           <section>

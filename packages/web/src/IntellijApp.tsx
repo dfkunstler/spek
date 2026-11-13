@@ -65,6 +65,8 @@ function IntellijAppInner() {
     return new FetchAdapter(INTELLIJ_PROJECT_PATH, {
       baseUrl: INTELLIJ_API_BASE,
       dirParam: "projectPath",
+      // The built-in server has no spec-ids route yet; see the spec-id-references follow-up.
+      specIds: false,
     });
   }, []);
 
