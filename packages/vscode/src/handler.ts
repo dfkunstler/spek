@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import {
   scanOpenSpec,
   searchRepository,
+  readSpecIdIndex,
   scanOpenSpecAggregated,
   readSpec,
   readChange,
@@ -65,6 +66,8 @@ export class MessageHandler {
         return this.getChange(params?.slug as string, params?.wt as string | undefined);
       case "search":
         return this.search(params?.query as string);
+      case "getSpecIds":
+        return this.getSpecIds(params?.changeSlug);
       case "browse":
         return this.browse(params?.path as string);
       case "detect":
@@ -177,6 +180,15 @@ export class MessageHandler {
     // the web server's Fuse index, which is how issue #51 shipped here too without anyone reporting it.
     if (query === undefined || query === null) throw new Error("query is required");
     return searchRepository(this.workspacePath, query);
+  }
+
+  private getSpecIds(changeSlug: unknown) {
+    // Core owns the rule and treats an unsafe slug as adding nothing, so a path-like slug cannot reach the
+    // filesystem. This only refuses a malformed message, so it fails loudly and is not read as "no change".
+    if (changeSlug !== undefined && changeSlug !== null && typeof changeSlug !== "string") {
+      throw new Error("changeSlug must be a string");
+    }
+    return readSpecIdIndex(this.workspacePath, changeSlug ?? undefined);
   }
 
   private browse(dirPath?: string) {

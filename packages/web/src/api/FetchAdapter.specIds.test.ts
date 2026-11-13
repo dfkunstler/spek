@@ -35,9 +35,7 @@ test("a host that cannot supply the index leaves the method undefined", () => {
   assert.equal(adapter.getSpecIds, undefined);
 });
 
-test("the other adapters need not define it", async () => {
-  const { MessageAdapter } = await import("./MessageAdapter");
+test("StaticAdapter, which has no index yet, need not define it", async () => {
   const { StaticAdapter } = await import("./StaticAdapter");
-  assert.equal((MessageAdapter.prototype as { getSpecIds?: unknown }).getSpecIds, undefined);
   assert.equal((StaticAdapter.prototype as { getSpecIds?: unknown }).getSpecIds, undefined);
 });

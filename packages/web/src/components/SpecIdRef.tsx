@@ -105,8 +105,20 @@ function useReveal() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") hideNow();
     };
+    // The preview is fixed to the viewport at the position the trigger had when it opened, so a scroll
+    // leaves it floating where the citation used to be. Scrolling the preview itself must not close it.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest('[role="tooltip"]')) return;
+      hideNow();
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", hideNow);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", hideNow);
+    };
   }, [open, hideNow]);
   return { open, show, hide, hideNow };
 }

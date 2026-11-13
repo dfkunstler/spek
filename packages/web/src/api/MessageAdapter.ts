@@ -12,6 +12,7 @@ import type {
   WorktreeInfo,
   SchemasResponse,
   SchemaReadResult,
+  SpecIdIndex,
 } from "@spekjs/core";
 import { CLI_TIMEOUT_MS } from "@spekjs/core/cli-budget";
 import type { ApiAdapter, AggregationPrefs } from "./types.js";
@@ -116,6 +117,12 @@ export class MessageAdapter implements ApiAdapter {
 
   search(query: string): Promise<SearchResult[]> {
     return this.request("search", { query });
+  }
+
+  // The spec identifier index (`spec-id-references`). Answered by the extension host from the workspace; it
+  // reads spec files and never calls the OpenSpec CLI, so the default request budget applies.
+  getSpecIds(changeSlug?: string): Promise<SpecIdIndex> {
+    return this.request("getSpecIds", { changeSlug });
   }
 
   browse(path: string): Promise<BrowseData> {

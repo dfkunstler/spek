@@ -213,7 +213,7 @@ Each maps to one or more specs under `openspec/specs/`; that directory is author
 - **Full-text search** — `Cmd/Ctrl+K`, across specs and changes, with context previews.
 - **Readable width** — spec, change, schema and overview pages are held to about 120 columns beside the
   sidebar, with the table of contents next to the text; Graph and Timeline keep the full window.
-- **Spec identifier references** (web) — where requirement and scenario headings carry permanent
+- **Spec identifier references** (web and VS Code) — where requirement and scenario headings carry permanent
   identifiers (`BMB-001`, `[ACCESS-001.02]`), a `[ID]` citation in spec text links to its target and shows the
   target's text on hover or focus. A retired identifier (from `openspec/spec-ids.yaml` or a
   `## Relocated and Retired IDs` table) is not a link and says it is retired, with its reason and replacement.
