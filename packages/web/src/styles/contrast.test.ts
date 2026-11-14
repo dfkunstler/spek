@@ -319,7 +319,12 @@ for (const [theme, tokens] of Object.entries(THEMES)) {
 const SPEK_MARKS: Array<{ spekVar: string; alpha: number; floor: number; label: string }> = [
   { spekVar: "accent", alpha: 0.85, floor: GRAPHIC_FLOOR, label: "graph spec node" },
   { spekVar: "node-active", alpha: 0.85, floor: GRAPHIC_FLOOR, label: "graph active change node" },
-  { spekVar: "text-muted", alpha: 0.85, floor: GRAPHIC_FLOOR, label: "graph archived node and edges" },
+  {
+    spekVar: "text-muted",
+    alpha: 0.85,
+    floor: GRAPHIC_FLOOR,
+    label: "graph archived node, edges, reference arrowheads, changed-together dashes and legend samples",
+  },
   { spekVar: "accent", alpha: 1, floor: GRAPHIC_FLOOR, label: "timeline active bar and today marker" },
   { spekVar: "text-muted", alpha: 1, floor: GRAPHIC_FLOOR, label: "timeline archived bar" },
   { spekVar: "accent", alpha: 1, floor: TEXT_FLOOR, label: "timeline today label" },
@@ -346,6 +351,36 @@ for (const [theme, tokens] of Object.entries(THEMES)) {
     }
   });
 }
+
+/**
+ * The `0.85` above is a copy of a number in the package, and a copy is how a measurement outlives the thing it
+ * measured. The spec ↔ spec edges added three marks that take it — the reference arrowhead's resting fill, the
+ * changed-together dashes (a dashed stroke is the same colour at the same alpha, only interrupted) and the
+ * legend samples — so this reads the package's source and fails if any of them stops using the constant the
+ * table is measuring.
+ */
+test("the spec ↔ spec edge marks draw at the opacity SPEK_MARKS measures", () => {
+  const graph = readFileSync(
+    fileURLToPath(new URL("../../../ui/src/SpecGraph.tsx", import.meta.url)),
+    "utf8",
+  );
+  const legendCss = readFileSync(
+    fileURLToPath(new URL("../../../ui/src/styles.css", import.meta.url)),
+    "utf8",
+  );
+  const measured = SPEK_MARKS.find((m) => m.spekVar === "text-muted" && m.label.includes("arrowheads"));
+  assert.ok(measured, "the table no longer names the arrowheads it measures");
+
+  const constant = /const EDGE_OPACITY = ([\d.]+);/.exec(graph)?.[1];
+  assert.equal(Number(constant), measured.alpha, "EDGE_OPACITY moved; re-measure and update SPEK_MARKS");
+  assert.match(graph, /rest: \[edgeColor, EDGE_OPACITY\]/, "the resting arrowhead stopped using EDGE_OPACITY");
+  assert.match(graph, /\.attr\("stroke-opacity", EDGE_OPACITY\)/, "the edges stopped using EDGE_OPACITY");
+
+  const sample = /\.spekui-legend-edge-line\s*\{[^}]*stroke-opacity:\s*([\d.]+)/.exec(legendCss)?.[1];
+  const head = /\.spekui-legend-edge-head\s*\{[^}]*fill-opacity:\s*([\d.]+)/.exec(legendCss)?.[1];
+  assert.equal(Number(sample), measured.alpha, "the legend's line sample no longer matches the edge it explains");
+  assert.equal(Number(head), measured.alpha, "the legend's arrowhead sample no longer matches the edge it explains");
+});
 
 test("every contract member is mapped and measured", () => {
   // An unmapped member silently falls back to the package's dark default — the failure mode that adding a

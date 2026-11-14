@@ -100,6 +100,7 @@ export type {
   SpecVersionContent,
   GraphNode,
   GraphEdge,
+  GraphEdgeKind,
   GraphData,
   SchemaSource,
   SchemaDegradedReason,

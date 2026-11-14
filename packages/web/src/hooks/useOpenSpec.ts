@@ -8,6 +8,7 @@ import {
   useBeginFetch,
 } from "../contexts/RefreshContext";
 import { runManualRefresh } from "../contexts/refreshTracker";
+import { readSpecContents, type SpecContents } from "../utils/specContents";
 import { useAggregationScope } from "../contexts/AggregationScopeContext";
 import type {
   OverviewData,
@@ -242,6 +243,19 @@ export function useGraphData(
   return useAsyncData(
     repoPath ? () => adapter.getGraphData(agg, jj) : null,
     [repoPath, agg, jj],
+  );
+}
+
+/**
+ * Every spec's text, for Specs mode's reference edges. Read only while `enabled` — the default graph view
+ * needs none of it — and re-read on the same refresh signal as every other fetch.
+ */
+export function useSpecContents(enabled: boolean): FetchState<SpecContents> {
+  const { repoPath } = useRepo();
+  const adapter = useApiAdapter();
+  return useAsyncData(
+    repoPath && enabled ? () => readSpecContents(adapter) : null,
+    [repoPath, enabled],
   );
 }
 

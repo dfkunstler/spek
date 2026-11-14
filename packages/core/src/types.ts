@@ -204,9 +204,16 @@ export interface GraphNode {
   source?: WorktreeSource;
 }
 
+/** What a spec-to-spec edge states (`spec-relations`). Absent on a change → spec edge. */
+export type GraphEdgeKind = "references" | "changed-together";
+
 export interface GraphEdge {
   source: string;
   target: string;
+  /** Present only on spec ↔ spec edges; an untyped edge is a change → spec edge, as always. */
+  kind?: GraphEdgeKind;
+  /** Number of changes touching both ends; set on `changed-together` edges. */
+  weight?: number;
 }
 
 export interface GraphData {

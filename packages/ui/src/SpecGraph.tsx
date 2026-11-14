@@ -1,4 +1,4 @@
-import type { GraphData, GraphNode } from "@spekjs/core";
+import type { GraphData, GraphEdgeKind, GraphNode } from "@spekjs/core";
 import { drag } from "d3-drag";
 import {
   forceCenter,
@@ -14,8 +14,9 @@ import {
 import { select } from "d3-selection";
 import "d3-transition";
 import { zoom, zoomIdentity } from "d3-zoom";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { changeNodeSlug, specNodeTopic } from "@spekjs/core/graph-node-id";
+import { arcPath, straightPath, weightWidth } from "./edgeGeometry.js";
 import { nodeDisplayLabel } from "./nodeText.js";
 import { CSS_VARS, resolveColor } from "./theme.js";
 
@@ -27,7 +28,15 @@ interface SimNode extends SimulationNodeDatum, GraphNode {
 interface SimLink extends SimulationLinkDatum<SimNode> {
   source: SimNode;
   target: SimNode;
+  kind?: GraphEdgeKind;
+  weight?: number;
 }
+
+/** Changed-together edges: dashes tell them from a reference with no help from hue. */
+const CHANGED_TOGETHER_DASH = "6 4";
+
+/** The arrowhead's size in stroke-width units; a marker scales with the line it ends. */
+const ARROW_SIZE = 11;
 
 export interface SpecGraphProps {
   data: GraphData;
@@ -97,6 +106,8 @@ export function SpecGraph({
   legend = true,
 }: SpecGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  // Marker ids are document-wide: two graphs on one page must not resolve each other's arrowheads.
+  const uid = useId().replace(/[^A-Za-z0-9_-]/g, "");
 
   // 回呼放進 ref：它們每次渲染都是新的閉包，但 d3 的 effect 不該為此重跑整個模擬。
   const onSelectSpecRef = useRef(onSelectSpec);
@@ -119,7 +130,6 @@ export function SpecGraph({
     // is only 3.24 in light).
     const edgeColor = resolveColor(CSS_VARS.textMuted);
     const EDGE_OPACITY = 0.85;
-    const edgeHighlight = resolveColor(CSS_VARS.textPrimary);
     const specColor = resolveColor(CSS_VARS.accent);
     const activeColor = resolveColor(CSS_VARS.nodeActive);
     const archivedColor = resolveColor(CSS_VARS.textMuted);
@@ -141,6 +151,8 @@ export function SpecGraph({
       .map((e) => ({
         source: nodeMap.get(e.source)!,
         target: nodeMap.get(e.target)!,
+        kind: e.kind,
+        weight: e.weight,
       }));
 
     // 建立鄰接表（hover 用）
@@ -157,16 +169,50 @@ export function SpecGraph({
     // 建立 zoom container
     const g = sel.append("g");
 
-    // Edges
+    // Arrowheads for `references` edges. A marker cannot follow its line's stroke colour or stroke
+    // opacity (`context-stroke` is not in every embedded Chromium), so there is one per state the edge
+    // can be in — resting, lit by a hover, dimmed by another's — and the hover handlers swap them.
+    const edgeHighlight = resolveColor(CSS_VARS.textPrimary);
+    const markerId = (state: "rest" | "lit" | "dim") => `spekui-arrow-${uid}-${state}`;
+    const defs = g.append("defs");
+    const markerFill: Record<"rest" | "lit" | "dim", [string, number]> = {
+      rest: [edgeColor, EDGE_OPACITY],
+      lit: [edgeHighlight, 0.9],
+      dim: [edgeColor, 0.05],
+    };
+    for (const state of ["rest", "lit", "dim"] as const) {
+      defs
+        .append("marker")
+        .attr("id", markerId(state))
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 10)
+        .attr("refY", 5)
+        .attr("markerWidth", ARROW_SIZE)
+        .attr("markerHeight", ARROW_SIZE)
+        .attr("markerUnits", "userSpaceOnUse")
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,0L10,5L0,10z")
+        .attr("fill", markerFill[state][0])
+        .attr("fill-opacity", markerFill[state][1]);
+    }
+    const markerEnd = (l: SimLink, state: "rest" | "lit" | "dim") =>
+      l.kind === "references" ? `url(#${markerId(state)})` : null;
+
+    // Edges. Untyped ones — every change → spec edge — keep the 1.5px solid line they always had;
+    // `kind` only ever adds to that.
     const linkSel = g
       .append("g")
       .attr("class", "links")
-      .selectAll("line")
+      .selectAll<SVGPathElement, SimLink>("path")
       .data(links)
-      .join("line")
+      .join("path")
+      .attr("fill", "none")
       .attr("stroke", edgeColor)
-      .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", EDGE_OPACITY);
+      .attr("stroke-width", (l) => (l.kind === "changed-together" ? weightWidth(l.weight) : 1.5))
+      .attr("stroke-dasharray", (l) => (l.kind === "changed-together" ? CHANGED_TOGETHER_DASH : null))
+      .attr("stroke-opacity", EDGE_OPACITY)
+      .attr("marker-end", (l) => markerEnd(l, "rest"));
 
     // Node groups
     const nodeSel = g
@@ -260,18 +306,19 @@ export function SpecGraph({
         // graphics, leave the labels at full strength" as the alternative it rejected — so lifting
         // the labels out without carrying the dim with them would quietly adopt it.
         labelSel.attr("opacity", lit);
+        const touches = (l: SimLink) => l.source.id === d.id || l.target.id === d.id;
         linkSel
-          .attr("stroke-opacity", (l) =>
-            l.source.id === d.id || l.target.id === d.id ? 0.9 : 0.05,
-          )
-          .attr("stroke", (l) =>
-            l.source.id === d.id || l.target.id === d.id ? edgeHighlight : edgeColor,
-          );
+          .attr("stroke-opacity", (l) => (touches(l) ? 0.9 : 0.05))
+          .attr("stroke", (l) => (touches(l) ? edgeHighlight : edgeColor))
+          .attr("marker-end", (l) => markerEnd(l, touches(l) ? "lit" : "dim"));
       })
       .on("mouseleave", () => {
         nodeSel.attr("opacity", 1);
         labelSel.attr("opacity", 1);
-        linkSel.attr("stroke-opacity", EDGE_OPACITY).attr("stroke", edgeColor);
+        linkSel
+          .attr("stroke-opacity", EDGE_OPACITY)
+          .attr("stroke", edgeColor)
+          .attr("marker-end", (l) => markerEnd(l, "rest"));
       });
 
     // Click（區分 drag vs click）。**元件不導航** —— 它只回報使用者選了什麼。
@@ -312,11 +359,11 @@ export function SpecGraph({
       .force("y", forceY(height / 2).strength(0.05))
       .force("collide", forceCollide<SimNode>().radius(radius))
       .on("tick", () => {
-        linkSel
-          .attr("x1", (d) => d.source.x)
-          .attr("y1", (d) => d.source.y)
-          .attr("x2", (d) => d.target.x)
-          .attr("y2", (d) => d.target.y);
+        linkSel.attr("d", (l) =>
+          l.kind === "references"
+            ? arcPath(l.source, l.target, nodeRadius(l.target))
+            : straightPath(l.source, l.target),
+        );
         nodeSel.attr("transform", (d) => `translate(${d.x},${d.y})`);
         labelSel.attr("transform", (d) => `translate(${d.x},${d.y})`);
       });
@@ -386,31 +433,66 @@ export function SpecGraph({
     return () => {
       simulation.stop();
     };
-  }, [data, themeKey]);
+  }, [data, themeKey, uid]);
 
   return (
     <>
       <svg ref={svgRef} className="spekui-graph" />
-      {legend && <Legend />}
+      {legend && <Legend data={data} />}
     </>
   );
 }
 
-function Legend() {
+/**
+ * Change entries only when there are changes to explain, and one sample per spec ↔ spec edge kind the data
+ * holds. A sample is the edge's own line style — dashes, arrowhead — drawn from the same contract colour as
+ * the edge, so the key is not a second description that can drift from the first.
+ */
+function Legend({ data }: { data: GraphData }) {
+  const hasChange = data.nodes.some((n) => n.type === "change");
+  const kinds = new Set(data.edges.map((e) => e.kind));
   return (
     <div className="spekui-legend">
       <div className="spekui-legend-row">
         <span className="spekui-legend-swatch spekui-legend-swatch--spec" />
         <span>Spec</span>
       </div>
-      <div className="spekui-legend-row">
-        <span className="spekui-legend-swatch spekui-legend-swatch--active" />
-        <span>Active Change</span>
-      </div>
-      <div className="spekui-legend-row">
-        <span className="spekui-legend-swatch spekui-legend-swatch--archived" />
-        <span>Archived Change</span>
-      </div>
+      {hasChange && (
+        <>
+          <div className="spekui-legend-row">
+            <span className="spekui-legend-swatch spekui-legend-swatch--active" />
+            <span>Active Change</span>
+          </div>
+          <div className="spekui-legend-row">
+            <span className="spekui-legend-swatch spekui-legend-swatch--archived" />
+            <span>Archived Change</span>
+          </div>
+        </>
+      )}
+      {kinds.has("references") && (
+        <div className="spekui-legend-row">
+          <svg className="spekui-legend-edge" width="28" height="10" viewBox="0 0 28 10" aria-hidden="true">
+            <line x1="0" y1="5" x2="20" y2="5" className="spekui-legend-edge-line" />
+            <path d="M18,1L27,5L18,9z" className="spekui-legend-edge-head" />
+          </svg>
+          <span>References</span>
+        </div>
+      )}
+      {kinds.has("changed-together") && (
+        <div className="spekui-legend-row">
+          <svg className="spekui-legend-edge" width="28" height="10" viewBox="0 0 28 10" aria-hidden="true">
+            <line
+              x1="0"
+              y1="5"
+              x2="28"
+              y2="5"
+              className="spekui-legend-edge-line"
+              strokeDasharray={CHANGED_TOGETHER_DASH}
+            />
+          </svg>
+          <span>Changed together</span>
+        </div>
+      )}
     </div>
   );
 }

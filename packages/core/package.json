@@ -64,6 +64,10 @@
     "./spec-ids": {
       "types": "./dist/spec-ids.d.ts",
       "import": "./dist/spec-ids.js"
+    },
+    "./spec-relations": {
+      "types": "./dist/spec-relations.d.ts",
+      "import": "./dist/spec-relations.js"
     }
   },
   "scripts": {
