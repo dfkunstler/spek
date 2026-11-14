@@ -87,6 +87,7 @@ packages/
 ├── core/       # @spekjs/core — pure logic (scanner.ts, tasks.ts, artifact-files.ts, artifact-discovery.ts, schema-order.ts, schemas.ts,
 │            #   search.ts=the search rule, search-documents.ts=its Node corpus,
 │            #   spec-ids.ts=the identifier rule (browser-safe), spec-id-index.ts=its Node index,
+│            #   spec-relations.ts=the spec↔spec relation rule (browser-safe),
 │            #   spec-files.ts=nested spec discovery, spec-topic.ts=topic rule + tree,
 │            #   schema-flow.ts, openspec-cli.ts, git-cache.ts, types.ts)
 ├── ui/         # @spekjs/ui — visual components (SpecGraph.tsx, timeline/*, theme.ts=color contract, styles.css)
@@ -120,6 +121,10 @@ with the same command — that is deliberate, so don't reimplement a gate inline
 `type-check` covers **test files too**. Each of core/ui carries a `tsconfig.test.json` for that, rather than the
 build config dropping its test `exclude`: the build config emits into `dist`, and `files: ["dist"]` publishes it,
 so removing the exclude there would ship compiled tests to registry consumers.
+
+**A `@spekjs/ui` change needs `npm run build -w @spekjs/ui` before the running web app shows it** — same trap, same cause
+(its entry is `dist/`). The dev server hot-reloads web's source, so a stale ui build renders the *old* graph beside the *new* page
+and reads as "my change did nothing".
 
 **A core change needs `npm run build:core` before web tests mean anything.** `@spekjs/core`'s package
 entry is `dist/`, so the web package imports the *built* copy, not `src/`. Editing core and running
@@ -559,7 +564,42 @@ GET /api/openspec/spec-ids?dir=...&at=<change slug> # spec identifier index (dec
     the target's Markdown through a nested `MarkdownRenderer` under an *empty* index, so a citation inside a preview stays
     text and previews cannot nest. It mounts only while open. No new colour tokens: it reuses the spec-reference classes.
 
-**Frontend routes**: `/` (SelectRepo, web only) → `/dashboard` → `/specs` → `/specs/*` (full topic path, each segment encoded via `specRoute`) → `/changes` → `/changes/:slug` → `/graph` → `/schemas` → `/schemas/:name`
+### Spec relationship graph (`/graph?mode=specs`)
+
+A second view of the Graph page: spec nodes only, edges derived between specs. The rule is `@spekjs/core/spec-relations`
+(`deriveSpecRelations`, `visibleRelations`; browser-safe, like `search` / `spec-ids`). Things that are not the obvious shape:
+
+- **It runs in the client, on what every host already serves** — `getSpecs`, `getSpec` per topic (concurrency 8,
+  `utils/specContents.ts`; ~115 ms for 57 specs) and `getGraphData`. So there is **no route, no adapter method and no Kotlin
+  mirror**, and the demo works from its embedded payload. A server-side batch route is the follow-up if a large repo makes
+  the reads slow — a change in four hosts, so measure first.
+- **`references`** (directed): a spec's prose names another topic's full path as a whole token. Boundary = not adjacent to a
+  letter / digit / `-` / `_`; **`/` is deliberately not one**, so `../spec-diff/spec.md` matches. The alternation lists the
+  longest topic first, so a parent path is not matched inside its child's. Case-sensitive (folding would match the word
+  "Search"). Known imprecision: a topic that is also an ordinary word can match prose that is not about the spec — it is a
+  reading of text, hence the legend says "References".
+- **`changed-together`** (undirected, weight = distinct changes touching both): counted by **change node id** from the existing
+  change → spec edges, so under aggregation (one node per deduplicated change) a change in two worktrees counts once. Topics
+  outside the supplied specs take part in nothing. Default minimum weight is 2: one shared change links nearly everything
+  (286 pairs here against 32 references, 70 at weight ≥ 2).
+- **`GraphEdge` gained optional `kind` / `weight`.** An edge with no `kind` is a change → spec edge and draws exactly as before;
+  `deriveSpecRelations` ignores typed edges. Spec-only data hides the legend's change entries.
+- **Edge kinds are told apart by geometry, never hue**: references are solid arcs with an arrowhead (bowing opposite ways for
+  A→B / B→A, so a mutual reference or a pair that also changed together stays two lines), changed-together are straight and
+  dashed with width growing with weight. All edges are now `<path>` elements. The arrowhead is an SVG `<marker>` in **three
+  states** (rest / hover-lit / dimmed) swapped on hover, because a marker cannot follow its line's `stroke-opacity`
+  (`context-stroke` is not in every embedded Chromium); ids carry a `useId` suffix so two graphs on one page do not resolve
+  each other's. Geometry is pure (`edgeGeometry.ts`) because `@spekjs/ui`'s suite has no DOM.
+- **Contrast**: no new contract member and no literal — everything is `--spek-text-muted` at the existing 0.85, already measured
+  in `SPEK_MARKS`. A test in `contrast.test.ts` reads `SpecGraph.tsx` and `styles.css` and fails if the arrowhead, the dashes
+  or the legend samples stop using the constant the table measures.
+- **Isolated specs are removed from the data, not hidden in the SVG** (`visibleRelations`), so the layout does not make room
+  for them and the "N specs have no visible relationships" figure comes from the pass that removed them. A spec whose content
+  could not be read is counted and reported, not silently dropped from the references.
+- Verified in Web, the demo (offline) and a real VS Code (same 41 nodes / 102 edges / 70 dashed / 32 arrowed on this repo).
+  **IntelliJ was not run** — it loads the same SPA over `FetchAdapter`, so it is expected to work, unconfirmed.
+
+**Frontend routes**: `/` (SelectRepo, web only) → `/dashboard` → `/specs` → `/specs/*` (full topic path, each segment encoded via `specRoute`) → `/changes` → `/changes/:slug` → `/graph` (`?mode=specs` for the spec↔spec view) → `/schemas` → `/schemas/:name`
 
 ## Key Design Decisions
 

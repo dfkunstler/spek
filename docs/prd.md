@@ -203,7 +203,10 @@ Each maps to one or more specs under `openspec/specs/`; that directory is author
   rather than file timestamps.
 - **Timeline** — horizontal Gantt-style chart of every change's lifecycle, with optional spec-topic
   grouping, status filters, and an auto-scaling time axis.
-- **Graph view** — force-directed spec↔change dependency graph, aggregation-aware.
+- **Graph view** — force-directed spec↔change dependency graph, aggregation-aware. A second **Specs** mode draws
+  relationships between specs themselves: *references* (a spec's prose names another spec, solid arrow) and
+  *changed together* (specs modified by the same change, dashed, thicker with more shared changes, filtered by a
+  minimum weight), derived in the client from content every surface already serves.
 - **Workflow schemas** — the schemas available to a repo, each rendered as a diagram of its steps
   grouped by dependency level, with the implementation and archive steps shown as part of the flow.
   Which schemas exist is only ever asked of the OpenSpec CLI. Where a schema declares an artifact

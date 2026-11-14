@@ -100,6 +100,27 @@
   background-color: var(--spek-text-muted);
 }
 
+/*
+ * A legend sample of a spec ↔ spec edge. Same contract property, same opacity as the edge it explains
+ * (`EDGE_OPACITY` in SpecGraph.tsx); a sample drawn in any other colour would key the graph in one the
+ * graph is not using.
+ */
+.spekui-legend-edge {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.spekui-legend-edge-line {
+  stroke: var(--spek-text-muted);
+  stroke-opacity: 0.85;
+  stroke-width: 1.5;
+}
+
+.spekui-legend-edge-head {
+  fill: var(--spek-text-muted);
+  fill-opacity: 0.85;
+}
+
 /* ── ChangeTimeline ────────────────────────────────────────────────────── */
 
 .spekui-timeline {
